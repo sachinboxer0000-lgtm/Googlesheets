@@ -1,0 +1,487 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sachin Study Tracker</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b1020;color:#f1f5f9;font-family:Arial,sans-serif}
+header{padding:20px;background:#172554;text-align:center}
+h1{font-size:23px;margin:0 0 8px}
+p{color:#b8c4da}
+main{max-width:850px;margin:auto;padding:14px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat,.book{background:#141c30;border:1px solid #2b3854;border-radius:12px}
+.stat{padding:12px;text-align:center}
+.stat strong{display:block;font-size:23px;color:#8bb5ff}
+.stat span{font-size:12px;color:#b8c4da}
+.progress{height:8px;background:#28334b;border-radius:10px;margin:15px 0;overflow:hidden}
+#bar{height:100%;width:0;background:#69d6a5}
+.controls{display:grid;gap:8px;margin-bottom:14px}
+input,select,button{width:100%;padding:11px;border-radius:9px;border:1px solid #334155;background:#101a2e;color:white;font-size:14px}
+button{background:#254579;font-weight:bold;cursor:pointer}
+.buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.book{margin-bottom:12px;overflow:hidden}
+.bookhead{padding:13px;background:#1c2740;font-weight:bold}
+.bookhead small{display:block;color:#aab4c8;margin-top:5px}
+.chapter{padding:12px;border-top:1px solid #2b3854;display:grid;grid-template-columns:24px 1fr 105px;gap:8px;align-items:center}
+.chapter input[type=checkbox]{width:19px;height:19px;accent-color:#69d6a5}
+.chapter select{padding:7px;font-size:12px}
+.title{font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.done{color:#69d6a5;text-decoration:line-through}
+.extra{grid-column:2/4;display:flex;gap:6px}
+.extra button{padding:6px;font-size:12px}
+.delete{background:#672c38}
+#message{text-align:center;color:#69d6a5}
+@media(min-width:600px){
+.controls{grid-template-columns:1fr 1fr 1fr}
+.buttons{grid-column:1/-1;grid-template-columns:repeat(4,1fr)}
+}
+</style>
+</head>
+<body>
+<header>
+<h1>📚 Sachin Study Tracker</h1>
+<p>RBSE कक्षा 12 | अपनी पढ़ाई का रिकॉर्ड रखो</p>
+</header>
+
+<main>
+<div class="stats">
+<div class="stat"><strong id="total">0</strong><span>कुल अध्याय</span></div>
+<div class="stat"><strong id="completed">0</strong><span>पूरे हुए</span></div>
+<div class="stat"><strong id="remaining">0</strong><span>बाकी</span></div>
+</div>
+
+<div class="progress"><div id="bar"></div></div>
+<p id="summary">प्रगति: 0%</p>
+
+<div class="controls">
+<input id="search" placeholder="🔎 अध्याय खोजें...">
+
+<select id="subjectFilter">
+<option value="">सभी विषय</option>
+</select>
+
+<select id="statusFilter">
+<option value="">सभी स्थितियाँ</option>
+<option value="todo">बाकी</option>
+<option value="doing">चल रहा है</option>
+<option value="done">पूरा हुआ</option>
+</select>
+
+<div class="buttons">
+<button onclick="exportTXT()">⬇ TXT Export</button>
+<button onclick="addChapter()">＋ अध्याय जोड़ें</button>
+<button onclick="backupJSON()">💾 बैकअप</button>
+<button onclick="importJSON()">📂 बैकअप खोलें</button>
+</div>
+</div>
+
+<p id="message"></p>
+<div id="books"></div>
+</main>
+
+<script>
+const initialData = [
+{
+subject:"इतिहास",
+book:"भारतीय इतिहास के कुछ विषय भाग 1, 2, 3",
+chapters:[
+["ईंटें, मनके तथा अस्थियाँ: हड़प्पा सभ्यता","done"],
+["राजा, किसान और नगर: आरंभिक राज्य और अर्थव्यवस्थाएँ","done"],
+["बंधुत्व, जाति तथा वर्ग: आरंभिक समाज","todo"],
+["विचारक, विश्वास और इमारतें: सांस्कृतिक विकास","todo"],
+["यात्रियों के नजरिए: समाज के बारे में उनकी समझ","todo"],
+["भक्ति-सूफी परंपराएँ","todo"],
+["एक साम्राज्य की राजधानी: विजयनगर","todo"],
+["किसान, जमींदार और राज्य","todo"],
+["उपनिवेशवाद और देहात","todo"],
+["विद्रोही और राज: 1857 का आंदोलन","todo"],
+["महात्मा गाँधी और राष्ट्रीय आंदोलन","todo"],
+["संविधान का निर्माण","todo"],
+["मानचित्र कार्य (Map Work)","todo"]
+]},
+{
+subject:"राजनीति विज्ञान",
+book:"समकालीन विश्व राजनीति",
+chapters:[
+["दो-ध्रुवीयता का अंत","todo"],
+["सत्ता के समकालीन केंद्र","todo"],
+["समकालीन दक्षिण एशिया","todo"],
+["अंतर्राष्ट्रीय संगठन","todo"],
+["समकालीन विश्व में सुरक्षा","todo"],
+["पर्यावरण और प्राकृतिक संसाधन","todo"],
+["वैश्वीकरण","todo"]
+]},
+{
+subject:"राजनीति विज्ञान",
+book:"स्वतंत्र भारत में राजनीति",
+chapters:[
+["राष्ट्र-निर्माण की चुनौतियाँ","todo"],
+["एक दल के प्रभुत्व का दौर","todo"],
+["नियोजित विकास की राजनीति","todo"],
+["भारत के विदेश संबंध","todo"],
+["कांग्रेस प्रणाली: चुनौतियाँ और पुनर्स्थापना","todo"],
+["लोकतांत्रिक व्यवस्था का संकट","todo"],
+["क्षेत्रीय आकांक्षाएँ","todo"],
+["भारतीय राजनीति: नए बदलाव","todo"]
+]},
+{
+subject:"हिन्दी अनिवार्य",
+book:"आरोह भाग 2 — काव्य",
+chapters:[
+["आत्म-परिचय, एक गीत — हरिवंश राय बच्चन","todo"],
+["पतंग — आलोक धन्वा","todo"],
+["कविता के बहाने, बात सीधी थी पर — कुँवर नारायण","todo"],
+["कैमरे में बंद अपाहिज — रघुवीर सहाय","todo"],
+["सहर्ष स्वीकारा है — मुक्तिबोध","todo"],
+["उषा — शमशेर बहादुर सिंह","todo"],
+["बादल राग — निराला","todo"],
+["कवितावली, लक्ष्मण-मूर्च्छा और राम का विलाप — तुलसीदास","todo"],
+["रुबाइयाँ, गज़ल — फ़िराक़ गोरखपुरी","todo"],
+["छोटा मेरा खेत, बगुलों के पंख — उमाशंकर जोशी","todo"]
+]},
+{
+subject:"हिन्दी अनिवार्य",
+book:"आरोह भाग 2 — गद्य",
+chapters:[
+["भक्तिन — महादेवी वर्मा","todo"],
+["बाज़ार दर्शन — जैनेंद्र कुमार","todo"],
+["काले मेघा पानी दे — धर्मवीर भारती","todo"],
+["पहेली बूढ़ी काकी — राजेंद्र यादव","todo"],
+["यथार्थवाद और छायावाद — नंददुलारे वाजपेयी","todo"],
+["शिरीष के फूल — हजारी प्रसाद द्विवेदी","todo"],
+["पहलवान की ढोलक — फणीश्वरनाथ रेणु","todo"],
+["चार्ली चैप्लिन यानी हम सब — विष्णु खरे","todo"]
+]},
+{
+subject:"हिन्दी अनिवार्य",
+book:"वितान भाग 2",
+chapters:[
+["सिल्वर वैडिंग — मनोहर श्याम जोशी","todo"],
+["जूझ — आनंद यादव","todo"],
+["अतीत में दबे पाँव — ओम थानवी","todo"],
+["डायरी के पन्ने — ऐन फ्रैंक","todo"]
+]},
+{
+subject:"हिन्दी अनिवार्य",
+book:"अभिव्यक्ति एवं माध्यम",
+chapters:[
+["विभिन्न माध्यमों के लिए लेखन","todo"],
+["विशेष लेखन-स्वरूप और प्रकार","todo"],
+["कहानी का नाट्य रूपांतरण / रेडियो नाटक","todo"]
+]},
+{
+subject:"हिन्दी साहित्य",
+book:"अंतरा भाग 2 — काव्य",
+chapters:[
+["कार्नेलिया का गीत — जयशंकर प्रसाद","done"],
+["देवसेना का गीत — जयशंकर प्रसाद","done"],
+["सरोज-स्मृति — सूर्यकांत त्रिपाठी निराला","todo"],
+["यह दीप अकेला, मैंने देखा एक बूँद — अज्ञेय","todo"],
+["बनारस, दिशा — केदारनाथ सिंह","todo"],
+["सत्य, एक कम — विष्णु खरे","todo"],
+["तोड़ो, वसंत आया — रघुवीर सहाय","todo"],
+["भरत-राम का प्रेम, पद — तुलसीदास","todo"],
+["बारहमासा — जायसी","todo"],
+["पद — विद्यापति","todo"],
+["रामचंद्रचंद्रिका — केशवदास","todo"],
+["कवित्त/सवैया — घनानंद","todo"]
+]},
+{
+subject:"हिन्दी साहित्य",
+book:"अंतरा भाग 2 — गद्य",
+chapters:[
+["प्रेमघन की स्मृति छाया — रामचंद्र शुक्ल","todo"],
+["सुमिरिनी के मनके — चंद्रधर शर्मा गुलेरी","todo"],
+["कच्चा चिट्ठा — ब्रजमोहन व्यास","todo"],
+["संवदिया — फणीश्वरनाथ रेणु","todo"],
+["गांधी, नेहरू और यास्सर अराफात — भीष्म साहनी","todo"],
+["शेर, पहचान, चार हाथ, साझा — असगर वजाहत","todo"],
+["जहाँ कोई वापसी नहीं — निर्मल वर्मा","todo"],
+["यथास्मै रोचते विश्वम् — राम विलास शर्मा","todo"],
+["दूसरा देवदास — ममता कालिया","todo"],
+["कुटज — हजारी प्रसाद द्विवेदी","todo"]
+]},
+{
+subject:"हिन्दी साहित्य",
+book:"अंतराल भाग 2",
+chapters:[
+["सूरदास की झोपड़ी","todo"]
+]},
+{
+subject:"अंग्रेज़ी",
+book:"Flamingo — Prose",
+chapters:[
+["The Last Lesson","done"],
+["Lost Spring","todo"],
+["Deep Water","todo"],
+["The Rattrap","todo"],
+["Indigo","todo"],
+["Poets and Pancakes","todo"],
+["The Interview","todo"],
+["Going Places","todo"]
+]},
+{
+subject:"अंग्रेज़ी",
+book:"Flamingo — Poetry",
+chapters:[
+["My Mother at Sixty-Six","done"],
+["An Elementary School Classroom in a Slum","todo"],
+["Keeping Quiet","todo"],
+["A Thing of Beauty","todo"],
+["A Roadside Stand","todo"],
+["Aunt Jennifer's Tigers","todo"]
+]},
+{
+subject:"अंग्रेज़ी",
+book:"Vistas",
+chapters:[
+["The Third Level","todo"],
+["The Tiger King","todo"],
+["Journey to the End of the Earth","todo"],
+["The Enemy","todo"],
+["Should Wizard Hit Mommy?","todo"],
+["On the Face of It","todo"],
+["Evans Tries an O-Level","todo"],
+["Memories of Childhood","todo"]
+]}
+];
+
+// अध्यायों के लिए अलग ID बनाना
+function prepare(data){
+ return data.map((b,i)=>({
+  id:b.id||"book"+i,
+  subject:b.subject,
+  book:b.book,
+  chapters:b.chapters.map((c,j)=>({
+   id:c.id||"ch"+i+"_"+j,
+   title:Array.isArray(c)?c[0]:c.title,
+   status:Array.isArray(c)?c[1]:(c.status||"todo")
+  }))
+ }));
+}
+
+let books;
+try{
+ const saved=localStorage.getItem("sachinTracker12");
+ books=saved?prepare(JSON.parse(saved)):prepare(initialData);
+}catch(e){books=prepare(initialData);}
+
+function save(){
+ try{
+  localStorage.setItem("sachinTracker12",JSON.stringify(books));
+  document.getElementById("message").textContent="✅ प्रगति सेव हो गई";
+ }catch(e){
+  alert("डेटा सेव नहीं हो पाया। TXT/JSON बैकअप डाउनलोड करें।");
+ }
+ stats();
+}
+
+function allChapters(){
+ return books.flatMap(b=>b.chapters);
+}
+
+function stats(){
+ const all=allChapters();
+ const done=all.filter(c=>c.status==="done").length;
+ const doing=all.filter(c=>c.status==="doing").length;
+ const total=all.length;
+ const percent=total?Math.round(done/total*100):0;
+ document.getElementById("total").textContent=total;
+ document.getElementById("completed").textContent=done;
+ document.getElementById("remaining").textContent=total-done;
+ document.getElementById("bar").style.width=percent+"%";
+ document.getElementById("summary").textContent=
+ `प्रगति: ${percent}% | चल रहे: ${doing} | बाकी: ${total-done-doing}`;
+}
+
+function esc(s){
+ return String(s).replace(/[&<>"']/g,c=>({
+ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+ }[c]));
+}
+
+function render(){
+ const subjectFilter=document.getElementById("subjectFilter");
+ const previous=subjectFilter.value;
+ const subjects=[...new Set(books.map(b=>b.subject))];
+ subjectFilter.innerHTML='<option value="">सभी विषय</option>'+
+ subjects.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join("");
+ subjectFilter.value=previous;
+
+ const query=document.getElementById("search").value.toLowerCase().trim();
+ const subject=subjectFilter.value;
+ const status=document.getElementById("statusFilter").value;
+ let html="";
+
+ books.forEach(b=>{
+  if(subject && b.subject!==subject)return;
+  const chapters=b.chapters.filter(c=>
+   (!query||(c.title+" "+b.subject+" "+b.book).toLowerCase().includes(query))&&
+   (!status||c.status===status)
+  );
+  if(!chapters.length)return;
+
+  html+=`<section class="book">
+  <div class="bookhead">${esc(b.subject)} — ${esc(b.book)}
+  <small>${chapters.filter(c=>c.status==="done").length}/${chapters.length} पूरे</small>
+  </div>`;
+
+  chapters.forEach(c=>{
+   html+=`<div class="chapter">
+   <input type="checkbox" data-check="${c.id}"
+   ${c.status==="done"?"checked":""} aria-label="पूरा हुआ">
+   <div class="title ${c.status==="done"?"done":""}">${esc(c.title)}</div>
+   <select data-status="${c.id}" aria-label="स्थिति">
+   <option value="todo" ${c.status==="todo"?"selected":""}>बाकी</option>
+   <option value="doing" ${c.status==="doing"?"selected":""}>चल रहा है</option>
+   <option value="done" ${c.status==="done"?"selected":""}>पूरा</option>
+   </select>
+   <div class="extra">
+   <button data-edit="${c.id}">✏️ नाम बदलें</button>
+   <button class="delete" data-delete="${c.id}">हटाएँ</button>
+   </div>
+   </div>`;
+  });
+  html+="</section>";
+ });
+
+ document.getElementById("books").innerHTML=html||
+ '<p>कोई अध्याय नहीं मिला। फ़िल्टर बदलकर देखें।</p>';
+ stats();
+}
+
+function findChapter(id){
+ for(const b of books){
+  const c=b.chapters.find(c=>c.id===id);
+  if(c)return {book:b,chapter:c};
+ }
+}
+
+document.getElementById("books").addEventListener("change",e=>{
+ const id=e.target.dataset.check||e.target.dataset.status;
+ if(!id)return;
+ const found=findChapter(id);
+ if(!found)return;
+
+ found.chapter.status=e.target.dataset.check?
+  (e.target.checked?"done":"todo"):e.target.value;
+
+ save();
+ render();
+});
+
+document.getElementById("books").addEventListener("click",e=>{
+ const edit=e.target.dataset.edit;
+ if(edit){
+  const found=findChapter(edit);
+  if(!found)return;
+  const title=prompt("अध्याय का नया नाम:",found.chapter.title);
+  if(title&&title.trim()){
+   found.chapter.title=title.trim();
+   save();render();
+  }
+ }
+
+ const del=e.target.dataset.delete;
+ if(del&&confirm("क्या यह अध्याय हटाना है?")){
+  books.forEach(b=>b.chapters=b.chapters.filter(c=>c.id!==del));
+  save();render();
+ }
+});
+
+document.getElementById("search").addEventListener("input",render);
+document.getElementById("subjectFilter").addEventListener("change",render);
+document.getElementById("statusFilter").addEventListener("change",render);
+
+function addChapter(){
+ const subject=prompt("विषय का नाम:");
+ if(!subject||!subject.trim())return;
+
+ const matching=books.find(b=>b.subject===subject.trim());
+ const book=prompt("पुस्तक का नाम:",matching?matching.book:"नई पुस्तक");
+ if(!book||!book.trim())return;
+
+ const title=prompt("अध्याय का नाम:");
+ if(!title||!title.trim())return;
+
+ let b=books.find(b=>b.subject===subject.trim()&&b.book===book.trim());
+ if(!b){
+  b={id:"custom"+Date.now(),subject:subject.trim(),book:book.trim(),chapters:[]};
+  books.push(b);
+ }
+ b.chapters.push({
+  id:"chapter"+Date.now(),
+  title:title.trim(),
+  status:"todo"
+ });
+ save();render();
+}
+
+function downloadFile(content,name,type){
+ const blob=new Blob(["\ufeff"+content],{type:type});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");
+ a.href=url;a.download=name;a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+
+function exportTXT(){
+ const all=allChapters();
+ const lines=[
+ "SACHIN STUDY TRACKER — RBSE CLASS 12",
+ "Export date: "+new Date().toLocaleDateString("hi-IN"),
+ "",
+ "कुल अध्याय: "+all.length,
+ "पूरे हुए: "+all.filter(c=>c.status==="done").length,
+ "चल रहे: "+all.filter(c=>c.status==="doing").length,
+ "बाकी: "+all.filter(c=>c.status==="todo").length,
+ ""
+ ];
+
+ books.forEach(b=>{
+  lines.push("## "+b.subject+" — "+b.book);
+  b.chapters.forEach((c,i)=>{
+   const status=c.status==="done"?"पूरा पढ़ लिया":
+    c.status==="doing"?"चल रहा है":"बाकी है";
+   lines.push(`${i+1}. ${c.title} — ${status}`);
+  });
+  lines.push("");
+ });
+
+ downloadFile(lines.join("\n"),"sachin-study-progress.txt","text/plain;charset=utf-8");
+}
+
+function backupJSON(){
+ downloadFile(JSON.stringify(books,null,2),
+ "sachin-study-backup.json","application/json;charset=utf-8");
+}
+
+function importJSON(){
+ const input=document.createElement("input");
+ input.type="file";
+ input.accept=".json,application/json";
+ input.onchange=async()=>{
+  const file=input.files[0];
+  if(!file)return;
+  try{
+   const parsed=JSON.parse(await file.text());
+   if(!Array.isArray(parsed))throw Error("Invalid");
+   if(!confirm("इससे वर्तमान सूची बदल जाएगी। पहले बैकअप कर लो। जारी रखें?"))return;
+   books=prepare(parsed);
+   save();render();
+   alert("बैकअप सफलतापूर्वक खुल गया।");
+  }catch(e){
+   alert("यह सही JSON बैकअप फ़ाइल नहीं है।");
+  }
+ };
+ input.click();
+}
+
+render();
+</script>
+</body>
+</html>
